@@ -20,3 +20,29 @@ function nestedLoops(n) {
         }
     }
 }
+
+// Recursive function - O(2^n)
+function recursiveFunction(n) {
+    if (n <= 1) return n;
+    return recursiveFunction(n - 1) + recursiveFunction(n - 2);
+}
+
+// Array methods - O(n log n)
+function arrayMethodsExample(arr) {
+    return arr.sort((a, b) => a - b);
+}
+
+// Complex nested function - O(n²)
+
+
+
+// Function using array methods - O(n)
+function arrayMethodsExample(data) {
+    return data
+        .filter(item => item > 0)           // O(n)
+        .map(item => item * 2)              // O(n)
+        .reduce((sum, item) => sum + item, 0); // O(n)
+    // Overall: O(n)
+}
+
+

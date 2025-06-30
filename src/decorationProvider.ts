@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import { ComplexityResult } from './complexityAnalyzer';
 
 export class ComplexityDecorationProvider {
-    private analysisResults = new Map<string, Map<string, { range: vscode.Range; result: ComplexityResult }>>();
+    private analysisResults = new Map<string, Map<string, { range: vscode.Range; result: ComplexityResult; timestamp: number }>>();
     private decorationType: vscode.TextEditorDecorationType;
+    private timeoutHandles = new Map<string, NodeJS.Timeout>();
+    private readonly DISPLAY_DURATION = 5000; // 5 seconds
 
     constructor() {
         this.decorationType = vscode.window.createTextEditorDecorationType({
@@ -24,7 +26,26 @@ export class ComplexityDecorationProvider {
             this.analysisResults.set(uriString, new Map());
         }
         
-        this.analysisResults.get(uriString)!.set(rangeKey, { range, result });
+        const timestamp = Date.now();
+        this.analysisResults.get(uriString)!.set(rangeKey, { range, result, timestamp });
+        
+        // Clear any existing timeout for this URI
+        const existingTimeout = this.timeoutHandles.get(uriString);
+        if (existingTimeout) {
+            clearTimeout(existingTimeout);
+        }
+        
+        // Set timeout to automatically clear decorations after 5 seconds
+        const timeoutHandle = setTimeout(() => {
+            this.clearResults(uri);
+            // Update decorations to remove them
+            const editor = vscode.window.activeTextEditor;
+            if (editor && editor.document.uri.toString() === uriString) {
+                this.updateDecorations(editor);
+            }
+        }, this.DISPLAY_DURATION);
+        
+        this.timeoutHandles.set(uriString, timeoutHandle);
     }
 
     updateDecorations(editor: vscode.TextEditor): void {
@@ -42,8 +63,14 @@ export class ComplexityDecorationProvider {
         }
 
         const decorations: vscode.DecorationOptions[] = [];
+        const currentTime = Date.now();
         
-        results.forEach(({ range, result }) => {
+        results.forEach(({ range, result, timestamp }) => {
+            // Check if the result has expired (older than 5 seconds)
+            if (currentTime - timestamp > this.DISPLAY_DURATION) {
+                return; // Skip expired results
+            }
+            
             const color = this.getComplexityColor(result.totalScore);
             const decoration: vscode.DecorationOptions = {
                 range: range,
@@ -108,14 +135,30 @@ export class ComplexityDecorationProvider {
 
     clearResults(uri?: vscode.Uri): void {
         if (uri) {
-            this.analysisResults.delete(uri.toString());
+            const uriString = uri.toString();
+            this.analysisResults.delete(uriString);
+            
+            // Clear timeout for this URI
+            const timeoutHandle = this.timeoutHandles.get(uriString);
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+                this.timeoutHandles.delete(uriString);
+            }
         } else {
             this.analysisResults.clear();
+            
+            // Clear all timeouts
+            this.timeoutHandles.forEach(timeout => clearTimeout(timeout));
+            this.timeoutHandles.clear();
         }
     }
 
     dispose(): void {
         this.decorationType.dispose();
         this.analysisResults.clear();
+        
+        // Clear all timeouts
+        this.timeoutHandles.forEach(timeout => clearTimeout(timeout));
+        this.timeoutHandles.clear();
     }
 }
