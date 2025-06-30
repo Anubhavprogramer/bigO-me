@@ -4,7 +4,7 @@
 
 ### Step 1: Prepare the Extension
 ```bash
-cd /Users/batch-2/Desktop/vsCodeExtension
+cd /project/location/vsCodeExtension
 npm run compile
 ```
 
