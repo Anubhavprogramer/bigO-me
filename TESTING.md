@@ -4,7 +4,7 @@
 
 ### Step 1: Prepare the Extension
 ```bash
-cd /Users/batch-2/Desktop/vsCodeExtension
+cd /project/location/vsCodeExtension
 npm run compile
 ```
 
@@ -22,7 +22,7 @@ npm run compile
 
 **Option B: Terminal**
 ```bash
-code --extensionDevelopmentPath=/Users/batch-2/Desktop/vsCodeExtension
+code --extensionDevelopmentPath=/Project/Loaction/vsCodeExtension
 ```
 
 **Option C: Settings Menu**
