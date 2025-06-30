@@ -1,123 +1,101 @@
-# 🚀 How to Test Your Code Complexity Analyzer Extension
+# Testing the Code Complexity Analyzer Extension
 
-## Quick Testing Guide (F5 Alternative)
+## Installation
 
-### Step 1: Prepare the Extension
-```bash
-cd /project/location/vsCodeExtension
-npm run compile
-```
-
-### Step 2: Launch Extension Development Host
-**Option A: Command Palette**
 1. Open VS Code
-2. Open this project folder
-3. Press `Cmd+Shift+P`
-4. Type: `Tasks: Run Task`
-5. Select: `watch`
-6. Press `Cmd+Shift+P` again
-7. Type: `Developer: Reload Window`
-8. Press `Cmd+Shift+P` once more
-9. Type: `Debug: Start Debugging` or `Developer: Start Extension Host`
+2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) to open the command palette
+3. Type "Extensions: Install from VSIX..."
+4. Select the `code-complexity-analyzer-0.0.1.vsix` file
+5. Restart VS Code when prompted
 
-**Option B: Terminal**
-```bash
-code --extensionDevelopmentPath=/Project/Loaction/vsCodeExtension
-```
+## Features to Test
 
-**Option C: Settings Menu**
-1. VS Code → View → Command Palette
-2. Type: Extensions: Install from VSIX
-3. Browse to your .vsix file (when we create one)
+### 1. Basic Complexity Analysis
+- Open `test.js` or `test-examples.js`
+- Press `F5` to start a new Extension Development Host
+- In the new window, open a JavaScript/TypeScript file
+- Use `Ctrl+Shift+P` → "Analyze Code Complexity" to see the analysis
 
-### Step 3: Test the Extension
-Once the new VS Code window opens:
+### 2. Graph Algorithm Detection (NEW!)
+- Open `test-graph-algorithms.js`
+- Run the complexity analysis on different functions
+- **Expected Results:**
+  - `bfs()`: Should show **O(E + V)** time complexity
+  - `dfs()`: Should show **O(E + V)** time complexity  
+  - `traverseGraph()`: Should show **O(E + V)** time complexity
+  - `findPath()`: Should show **O(E + V)** time complexity
 
-1. **Create a test file**: `test.js`
-2. **Add some code**:
+### 3. Auto-Hide Feature (FIXED!)
+- Run complexity analysis on any function
+- **Expected Behavior:** Complexity annotations should automatically disappear after 5 seconds
+- The decorations should fade out without manual intervention
+
+### 4. Inline Annotations
+- Enable inline annotations in settings: `"complexityAnalyzer.showInlineAnnotations": true`
+- Save a file with function definitions
+- Should see inline complexity annotations next to function signatures
+
+### 5. Webview Reports
+- Use command "Show Complexity Report" to open detailed analysis
+- Should show breakdown of complexity details
+
+## Test Files Included
+
+- `test.js` - Basic complexity examples
+- `test-examples.js` - More complex nested loops
+- `test-graph-algorithms.js` - Graph traversal algorithms (NEW!)
+
+## What's New in This Version
+
+### Graph Algorithm Detection
+The extension now detects common graph traversal patterns and correctly identifies them as **O(E + V)** complexity:
+
+- **BFS (Breadth-First Search)**: Detects queue usage with graph traversal
+- **DFS (Depth-First Search)**: Detects recursive or stack-based graph traversal  
+- **General Graph Traversal**: Detects adjacency lists, visited arrays, and traversal patterns
+
+### Auto-Hide Fixed
+- Complexity annotations now properly disappear after 5 seconds
+- No more persistent annotations cluttering the editor
+- Periodic cleanup ensures expired decorations are removed
+
+## Testing Graph Complexity Detection
+
+Use the `test-graph-algorithms.js` file to verify:
+
 ```javascript
-function bubbleSort(arr) {
-    for (let i = 0; i < arr.length; i++) {
-        for (let j = 0; j < arr.length - i - 1; j++) {
-            if (arr[j] > arr[j + 1]) {
-                [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
-            }
-        }
-    }
-    return arr;
+// This should show O(E + V) complexity
+function bfs(graph, start) {
+    const visited = new Set();
+    const queue = [start];
+    // ... BFS implementation
 }
 ```
 
-3. **Select the function** (highlight it)
-4. **Right-click** → "Analyze Time & Space Complexity"
-5. **Or press `Cmd+Shift+P`** → "Analyze Time & Space Complexity"
+The analyzer should detect:
+- Keywords: `bfs`, `dfs`, `graph`, `adjacency`, `visited`, `queue`, `edges`
+- Patterns: Queue/stack usage with graph structures
+- Result: **Time: O(E + V), Space: O(V)**
 
-### Expected Results:
-- **Inline annotation**: `T: O(n²), S: O(1)`
-- **Popup message**: "Time Complexity: O(n²), Space Complexity: O(1)"
-- **Hover tooltip**: Detailed breakdown with line-by-line analysis
+## Quick Testing Steps
 
-### To View Detailed Report:
-1. Press `Cmd+Shift+P`
-2. Type: "Show Complexity Report"
-3. Interactive webview opens with charts and analysis
+### For Graph Algorithm Detection:
+1. Open `test-graph-algorithms.js`
+2. Place cursor in any function (bfs, dfs, traverseGraph, findPath)
+3. Run complexity analysis
+4. Verify output shows **O(E + V)** instead of O(n²)
 
-## Alternative: Package and Install Extension
-
-### Create Extension Package:
-```bash
-npx vsce package --allow-missing-repository --allow-missing-license
-```
-
-### Install Package:
-```bash
-code --install-extension code-complexity-analyzer-0.0.1.vsix
-```
+### For Auto-Hide Feature:
+1. Run analysis on any function
+2. Wait 5 seconds
+3. Verify annotations disappear automatically
+4. No manual intervention needed
 
 ## Troubleshooting
 
-### If commands don't appear:
-1. Check Developer Console: `Help → Toggle Developer Tools`
-2. Look for extension activation messages
-3. Reload window: `Cmd+Shift+P` → "Developer: Reload Window"
-
-### If analysis doesn't work:
-1. Check file is saved
-2. Ensure language is JavaScript/TypeScript
-3. Check VS Code console for errors
-
-## Your Extension is Working If:
-- ✅ Commands appear in Command Palette
-- ✅ Right-click context menu shows "Analyze Time & Space Complexity"
-- ✅ Inline annotations appear after analysis
-- ✅ Webview opens with detailed reports
-- ✅ Hover tooltips show complexity details
-
-## Demo Code to Test:
-
-```javascript
-// O(1) - Constant
-function constant(x) { return x * 2; }
-
-// O(n) - Linear
-function linear(arr) {
-    return arr.reduce((sum, x) => sum + x, 0);
-}
-
-// O(n²) - Quadratic
-function quadratic(matrix) {
-    for (let i = 0; i < matrix.length; i++) {
-        for (let j = 0; j < matrix[i].length; j++) {
-            console.log(matrix[i][j]);
-        }
-    }
-}
-
-// O(2^n) - Exponential
-function fibonacci(n) {
-    if (n <= 1) return n;
-    return fibonacci(n - 1) + fibonacci(n - 2);
-}
-```
+If the extension isn't working:
+1. Check the Developer Console (`Help > Toggle Developer Tools`) for errors
+2. Make sure you're testing in the Extension Development Host (F5)
+3. Try reloading the window (`Ctrl+R` or `Cmd+R`)
 
 Happy testing! 🎉
