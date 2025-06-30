@@ -1,23 +1,13 @@
-import * as acorn from 'acorn';
-import { Node } from 'acorn';
+// Standalone complexity analyzer test
+// This imports only the analyzer without VS Code dependencies
 
-export interface ComplexityResult {
-    timeComplexity: string;
-    spaceComplexity: string;
-    details: ComplexityDetails[];
-    totalScore: number;
-}
+// Import acorn for parsing
+const acorn = require('acorn');
 
-export interface ComplexityDetails {
-    type: string;
-    description: string;
-    line: number;
-    complexity: string;
-}
-
-export class ComplexityAnalyzer {
+// Copy the ComplexityAnalyzer class for standalone testing
+class ComplexityAnalyzer {
     
-    analyzeCode(code: string, languageId: string): ComplexityResult {
+    analyzeCode(code, languageId) {
         switch (languageId) {
             case 'javascript':
             case 'typescript':
@@ -29,7 +19,7 @@ export class ComplexityAnalyzer {
         }
     }
 
-    private analyzeJavaScript(code: string): ComplexityResult {
+    analyzeJavaScript(code) {
         try {
             // Parse the JavaScript/TypeScript code
             const ast = acorn.parse(code, {
@@ -40,23 +30,23 @@ export class ComplexityAnalyzer {
             });
 
             const analyzer = new JSComplexityAnalyzer();
-            return analyzer.analyze(ast as any, code);
+            return analyzer.analyze(ast, code);
         } catch (error) {
             console.error('JavaScript parsing error:', error);
             return this.analyzeGeneric(code);
         }
     }
 
-    private analyzePython(code: string): ComplexityResult {
+    analyzePython(code) {
         // Basic Python complexity analysis using pattern matching
         return this.analyzeGeneric(code);
     }
 
-    private analyzeGeneric(code: string): ComplexityResult {
+    analyzeGeneric(code) {
         const lines = code.split('\n');
         let timeComplexity = 'n';
         let spaceComplexity = '1';
-        const details: ComplexityDetails[] = [];
+        const details = [];
         let totalScore = 1;
 
         // Analyze loops and nested structures
@@ -117,7 +107,7 @@ export class ComplexityAnalyzer {
 
         // Calculate final complexity
         if (hasGraphTraversal) {
-            timeComplexity = 'V + E';
+            timeComplexity = 'E + V';
             spaceComplexity = 'V';
             totalScore = 6;
         } else if (hasRecursion) {
@@ -151,24 +141,20 @@ export class ComplexityAnalyzer {
         };
     }
 
-    public detectGraphAlgorithms(code: string): ComplexityDetails[] {
-        const details: ComplexityDetails[] = [];
+    detectGraphAlgorithms(code) {
+        const details = [];
         const lines = code.split('\n');
         
         // Look for graph traversal patterns
         let hasBFSPattern = false;
         let hasDFSPattern = false;
-        let hasDAGPattern = false;
         let hasAdjacencyList = false;
         let hasQueue = false;
         let hasStack = false;
         let hasVisitedArray = false;
-        let hasTopologicalSort = false;
-        let hasInDegree = false;
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].toLowerCase().trim();
-            const originalLine = lines[i].trim();
             const lineNumber = i + 1;
             
             // Check for adjacency list/graph structure
@@ -177,29 +163,8 @@ export class ComplexityAnalyzer {
                 line.includes('edges') || 
                 line.includes('vertices') ||
                 line.includes('neighbors') ||
-                line.includes('adj') ||
-                originalLine.includes('[u, v]') ||
-                originalLine.includes('[source, target]') ||
-                originalLine.includes('adj[u]') ||
-                originalLine.includes('adj[node]')) {
+                line.includes('adj')) {
                 hasAdjacencyList = true;
-            }
-            
-            // Check for DAG-specific patterns
-            if (line.includes('indegree') || 
-                line.includes('in_degree') ||
-                line.includes('topological') ||
-                line.includes('topo') ||
-                line.includes('dag') ||
-                originalLine.includes('inDegree') ||
-                originalLine.includes('topoOrder')) {
-                hasDAGPattern = true;
-                if (line.includes('indegree') || originalLine.includes('inDegree')) {
-                    hasInDegree = true;
-                }
-                if (line.includes('topological') || line.includes('topo') || originalLine.includes('topoOrder')) {
-                    hasTopologicalSort = true;
-                }
             }
             
             // Check for queue (BFS indicator)
@@ -213,7 +178,7 @@ export class ComplexityAnalyzer {
             
             // Check for stack (DFS indicator) 
             if (line.includes('stack') || 
-                (line.includes('.push(') && line.includes('.pop()')) ||
+                line.includes('.push(') && line.includes('.pop()') ||
                 line.includes('dfs') ||
                 line.includes('depth')) {
                 hasStack = true;
@@ -226,14 +191,14 @@ export class ComplexityAnalyzer {
                 hasVisitedArray = true;
             }
             
-            // Direct algorithm pattern detection
+            // Direct BFS/DFS function names
             if (line.includes('bfs') || line.includes('breadth')) {
                 hasBFSPattern = true;
                 details.push({
                     type: 'graph-bfs',
                     description: 'Breadth-First Search detected',
                     line: lineNumber,
-                    complexity: 'O(V + E)'
+                    complexity: 'O(E + V)'
                 });
             }
             
@@ -243,51 +208,33 @@ export class ComplexityAnalyzer {
                     type: 'graph-dfs', 
                     description: 'Depth-First Search detected',
                     line: lineNumber,
-                    complexity: 'O(V + E)'
-                });
-            }
-
-            if (line.includes('longestpath') || 
-                line.includes('shortest') ||
-                line.includes('path') && hasDAGPattern) {
-                details.push({
-                    type: 'graph-dag',
-                    description: 'DAG path algorithm detected',
-                    line: lineNumber,
-                    complexity: 'O(V + E)'
+                    complexity: 'O(E + V)'
                 });
             }
         }
         
-        // Heuristic detection for graph algorithms
-        if (hasAdjacencyList || hasDAGPattern) {
-            if (hasInDegree && hasTopologicalSort && !details.some(d => d.type === 'graph-dag')) {
-                details.push({
-                    type: 'graph-dag',
-                    description: 'DAG algorithm with topological sort',
-                    line: 1,
-                    complexity: 'O(V + E)'
-                });
-            } else if (hasQueue && hasVisitedArray && !hasBFSPattern) {
+        // Heuristic: if we have graph structure + traversal patterns
+        if (hasAdjacencyList && hasVisitedArray) {
+            if (hasQueue && !hasBFSPattern) {
                 details.push({
                     type: 'graph-traversal',
-                    description: 'Graph traversal with queue (BFS pattern)',
+                    description: 'Graph traversal with queue (likely BFS)',
                     line: 1,
-                    complexity: 'O(V + E)'
+                    complexity: 'O(E + V)'
                 });
-            } else if (hasStack && hasVisitedArray && !hasDFSPattern) {
+            } else if (hasStack && !hasDFSPattern) {
                 details.push({
                     type: 'graph-traversal',
-                    description: 'Graph traversal with stack (DFS pattern)',
+                    description: 'Graph traversal with stack (likely DFS)',
                     line: 1, 
-                    complexity: 'O(V + E)'
+                    complexity: 'O(E + V)'
                 });
-            } else if (hasAdjacencyList && (hasVisitedArray || hasQueue || hasStack) && details.length === 0) {
+            } else if (!hasBFSPattern && !hasDFSPattern) {
                 details.push({
                     type: 'graph-traversal',
                     description: 'Graph traversal pattern detected',
                     line: 1,
-                    complexity: 'O(V + E)'
+                    complexity: 'O(E + V)'
                 });
             }
         }
@@ -295,7 +242,7 @@ export class ComplexityAnalyzer {
         return details;
     }
 
-    private isLoop(line: string): boolean {
+    isLoop(line) {
         const loopPatterns = [
             /\bfor\s*\(/,
             /\bwhile\s*\(/,
@@ -310,22 +257,15 @@ export class ComplexityAnalyzer {
         return loopPatterns.some(pattern => pattern.test(line));
     }
 
-    private isRecursiveCall(line: string, fullCode: string): boolean {
+    isRecursiveCall(line, fullCode) {
         // Simple heuristic: look for function calls that match function names in the code
         const functionNames = this.extractFunctionNames(fullCode);
-        return functionNames.some(name => {
-            // Check if line contains a call to the function (but not the function definition)
-            const hasCall = line.includes(name + '(');
-            const isDefinition = line.includes('function ' + name) || 
-                                line.includes('const ' + name) || 
-                                line.includes('let ' + name) ||
-                                line.includes('var ' + name) ||
-                                line.includes('def ' + name);
-            return hasCall && !isDefinition;
-        });
+        return functionNames.some(name => 
+            line.includes(name + '(') && !line.includes('function ' + name)
+        );
     }
 
-    private extractFunctionNames(code: string): string[] {
+    extractFunctionNames(code) {
         const functionPatterns = [
             /function\s+(\w+)/g,
             /const\s+(\w+)\s*=\s*\(/g,
@@ -335,7 +275,7 @@ export class ComplexityAnalyzer {
             /def\s+(\w+)\s*\(/g  // Python
         ];
         
-        const names: string[] = [];
+        const names = [];
         functionPatterns.forEach(pattern => {
             let match;
             while ((match = pattern.exec(code)) !== null) {
@@ -346,7 +286,7 @@ export class ComplexityAnalyzer {
         return names;
     }
 
-    private isDataStructureOperation(line: string): boolean {
+    isDataStructureOperation(line) {
         const patterns = [
             /\.push\s*\(/,
             /\.pop\s*\(/,
@@ -364,7 +304,7 @@ export class ComplexityAnalyzer {
         return patterns.some(pattern => pattern.test(line));
     }
 
-    private isBlockEnd(line: string): boolean {
+    isBlockEnd(line) {
         return line === 'end' || 
                line === 'fi' || 
                line === 'done' ||
@@ -372,7 +312,7 @@ export class ComplexityAnalyzer {
                /^\s*finally\s*:/.test(line);
     }
 
-    private hasLargeDataStructures(code: string): boolean {
+    hasLargeDataStructures(code) {
         const patterns = [
             /new\s+Array\s*\(/,
             /\[\s*.{20,}\s*\]/,  // Large array literals
@@ -387,13 +327,15 @@ export class ComplexityAnalyzer {
 }
 
 class JSComplexityAnalyzer {
-    private details: ComplexityDetails[] = [];
-    private nestedLevel = 0;
-    private maxNested = 0;
-    private hasRecursion = false;
-    private codeLines: string[] = [];
+    constructor() {
+        this.details = [];
+        this.nestedLevel = 0;
+        this.maxNested = 0;
+        this.hasRecursion = false;
+        this.codeLines = [];
+    }
 
-    analyze(ast: Node, code: string): ComplexityResult {
+    analyze(ast, code) {
         this.codeLines = code.split('\n');
         this.details = [];
         this.nestedLevel = 0;
@@ -413,7 +355,7 @@ class JSComplexityAnalyzer {
         let totalScore = 1;
 
         if (hasGraphTraversal) {
-            timeComplexity = 'V + E';
+            timeComplexity = 'E + V';
             spaceComplexity = 'V';
             totalScore = 6;
         } else if (this.hasRecursion) {
@@ -439,7 +381,7 @@ class JSComplexityAnalyzer {
         };
     }
 
-    private visit(node: any): void {
+    visit(node) {
         if (!node) return;
 
         switch (node.type) {
@@ -477,7 +419,7 @@ class JSComplexityAnalyzer {
         }
     }
 
-    private handleLoop(node: any): void {
+    handleLoop(node) {
         this.nestedLevel++;
         this.maxNested = Math.max(this.maxNested, this.nestedLevel);
         
@@ -490,7 +432,7 @@ class JSComplexityAnalyzer {
         });
     }
 
-    private handleCallExpression(node: any): void {
+    handleCallExpression(node) {
         // Check for recursive calls and array methods
         if (node.callee?.name) {
             const line = node.loc?.start?.line || 1;
@@ -507,3 +449,124 @@ class JSComplexityAnalyzer {
         }
     }
 }
+
+// Test the analyzer
+const testCodes = {
+    simple: `function simple(x) { return x + 1; }`,
+    linear: `function linear(arr) {
+        for (let i = 0; i < arr.length; i++) {
+            console.log(arr[i]);
+        }
+    }`,
+    quadratic: `function quadratic(n) {
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                console.log(i, j);
+            }
+        }
+    }`,
+    recursive: `function fibonacci(n) {
+        if (n <= 1) return n;
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    }`,
+    graphBFS: `function bfs(graph, start) {
+        const visited = new Set();
+        const queue = [start];
+        
+        while (queue.length > 0) {
+            const node = queue.shift();
+            
+            if (!visited.has(node)) {
+                visited.add(node);
+                console.log(node);
+                
+                for (const neighbor of graph[node]) {
+                    if (!visited.has(neighbor)) {
+                        queue.push(neighbor);
+                    }
+                }
+            }
+        }
+    }`,
+    graphDFS: `function dfs(graph, start, visited = new Set()) {
+        visited.add(start);
+        console.log(start);
+        
+        for (const neighbor of graph[start]) {
+            if (!visited.has(neighbor)) {
+                dfs(graph, neighbor, visited);
+            }
+        }
+    }`,
+    dagLongestPath: `function longestPathDAG(V, edges, source) {
+        const adj = Array.from({ length: V }, () => []);
+        const inDegree = Array(V).fill(0);
+        
+        for (const [u, v] of edges) {
+            adj[u].push(v);
+            inDegree[v]++;
+        }
+        
+        const queue = [];
+        for (let i = 0; i < V; i++) {
+            if (inDegree[i] === 0) {
+                queue.push(i);
+            }
+        }
+        
+        const topoOrder = [];
+        while (queue.length > 0) {
+            const node = queue.shift();
+            topoOrder.push(node);
+            
+            for (const neighbor of adj[node]) {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] === 0) {
+                    queue.push(neighbor);
+                }
+            }
+        }
+        
+        const dp = Array(V).fill(-Infinity);
+        dp[source] = 0;
+        
+        for (const u of topoOrder) {
+            if (dp[u] !== -Infinity) {
+                for (const v of adj[u]) {
+                    dp[v] = Math.max(dp[v], dp[u] + 1);
+                }
+            }
+        }
+        
+        return Math.max(...dp);
+    }`
+};
+
+console.log('🔍 Testing Code Complexity Analyzer...\n');
+
+const analyzer = new ComplexityAnalyzer();
+
+Object.entries(testCodes).forEach(([name, code]) => {
+    console.log(`\n📊 Testing ${name} function:`);
+    console.log(`Code: ${code.substring(0, 50)}...`);
+    
+    try {
+        const result = analyzer.analyzeCode(code, 'javascript');
+        console.log(`⏱️  Time Complexity: O(${result.timeComplexity})`);
+        console.log(`💾 Space Complexity: O(${result.spaceComplexity})`);
+        console.log(`📈 Score: ${result.totalScore}/10`);
+        console.log(`📝 Details: ${result.details.length} patterns detected`);
+        
+        if (result.details.length > 0) {
+            result.details.forEach(detail => {
+                console.log(`   - Line ${detail.line}: ${detail.description} (${detail.complexity})`);
+            });
+        }
+    } catch (error) {
+        console.error(`❌ Error: ${error.message}`);
+    }
+    
+    console.log('─'.repeat(60));
+});
+
+console.log('\n✅ Test completed!');

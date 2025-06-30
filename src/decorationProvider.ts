@@ -5,7 +5,9 @@ export class ComplexityDecorationProvider {
     private analysisResults = new Map<string, Map<string, { range: vscode.Range; result: ComplexityResult; timestamp: number }>>();
     private decorationType: vscode.TextEditorDecorationType;
     private timeoutHandles = new Map<string, NodeJS.Timeout>();
+    private refreshInterval: NodeJS.Timeout | null = null;
     private readonly DISPLAY_DURATION = 5000; // 5 seconds
+    private readonly REFRESH_INTERVAL = 1000; // Check every second
 
     constructor() {
         this.decorationType = vscode.window.createTextEditorDecorationType({
@@ -29,23 +31,20 @@ export class ComplexityDecorationProvider {
         const timestamp = Date.now();
         this.analysisResults.get(uriString)!.set(rangeKey, { range, result, timestamp });
         
-        // Clear any existing timeout for this URI
-        const existingTimeout = this.timeoutHandles.get(uriString);
-        if (existingTimeout) {
-            clearTimeout(existingTimeout);
+        // Start refresh interval if not already running
+        if (!this.refreshInterval) {
+            this.startRefreshInterval();
         }
-        
-        // Set timeout to automatically clear decorations after 5 seconds
-        const timeoutHandle = setTimeout(() => {
-            this.clearResults(uri);
-            // Update decorations to remove them
+    }
+
+    private startRefreshInterval(): void {
+        this.refreshInterval = setInterval(() => {
+            // Update decorations for the active editor
             const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.uri.toString() === uriString) {
+            if (editor) {
                 this.updateDecorations(editor);
             }
-        }, this.DISPLAY_DURATION);
-        
-        this.timeoutHandles.set(uriString, timeoutHandle);
+        }, this.REFRESH_INTERVAL);
     }
 
     updateDecorations(editor: vscode.TextEditor): void {
@@ -64,10 +63,12 @@ export class ComplexityDecorationProvider {
 
         const decorations: vscode.DecorationOptions[] = [];
         const currentTime = Date.now();
+        const expiredKeys: string[] = [];
         
-        results.forEach(({ range, result, timestamp }) => {
+        results.forEach(({ range, result, timestamp }, key) => {
             // Check if the result has expired (older than 5 seconds)
             if (currentTime - timestamp > this.DISPLAY_DURATION) {
+                expiredKeys.push(key);
                 return; // Skip expired results
             }
             
@@ -88,46 +89,75 @@ export class ComplexityDecorationProvider {
             decorations.push(decoration);
         });
 
+        // Clean up expired entries
+        expiredKeys.forEach(key => {
+            results.delete(key);
+        });
+
+        // If no results left, clear the map entry
+        if (results.size === 0) {
+            this.analysisResults.delete(uriString);
+            const timeoutHandle = this.timeoutHandles.get(uriString);
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+                this.timeoutHandles.delete(uriString);
+            }
+        }
+
         editor.setDecorations(this.decorationType, decorations);
     }
 
     private getComplexityColor(score: number): string {
         if (score >= 8) return '#ff4444'; // Red for exponential
+        if (score >= 6) return '#ffaa00'; // Yellow for graph algorithms (V+E)
         if (score >= 4) return '#ff8800'; // Orange for quadratic
-        if (score >= 2) return '#ffaa00'; // Yellow for linear
+        if (score >= 2) return '#88cc00'; // Light green for linear
         return '#44aa44'; // Green for constant
     }
 
     private getComplexityBackgroundColor(score: number): string {
         if (score >= 8) return 'rgba(255, 68, 68, 0.2)'; // Red background
+        if (score >= 6) return 'rgba(255, 170, 0, 0.2)'; // Yellow background for graph
         if (score >= 4) return 'rgba(255, 136, 0, 0.2)'; // Orange background
-        if (score >= 2) return 'rgba(255, 170, 0, 0.2)'; // Yellow background
+        if (score >= 2) return 'rgba(136, 204, 0, 0.2)'; // Light green background
         return 'rgba(68, 170, 68, 0.2)'; // Green background
     }
 
     private createHoverMessage(result: ComplexityResult): vscode.MarkdownString {
         const markdown = new vscode.MarkdownString();
         markdown.isTrusted = true;
+        markdown.supportHtml = false;
         
-        markdown.appendMarkdown(`### Complexity Analysis\\n\\n`);
-        markdown.appendMarkdown(`**Time Complexity:** O(${result.timeComplexity})\\n\\n`);
-        markdown.appendMarkdown(`**Space Complexity:** O(${result.spaceComplexity})\\n\\n`);
+        markdown.appendMarkdown(`## Complexity Analysis\n\n`);
+        markdown.appendMarkdown(`**Time Complexity:** O(${result.timeComplexity})\n\n`);
+        markdown.appendMarkdown(`**Space Complexity:** O(${result.spaceComplexity})\n\n`);
         
         if (result.details.length > 0) {
-            markdown.appendMarkdown(`### Details:\\n\\n`);
-            result.details.forEach(detail => {
-                markdown.appendMarkdown(`- **Line ${detail.line}:** ${detail.description} - ${detail.complexity}\\n`);
+            markdown.appendMarkdown(`### Analysis Details:\n\n`);
+            result.details.forEach((detail, index) => {
+                markdown.appendMarkdown(`${index + 1}. **Line ${detail.line}:** ${detail.description}\n`);
+                markdown.appendMarkdown(`   - Complexity: ${detail.complexity}\n\n`);
             });
         }
 
         const complexity = this.getComplexityRating(result.totalScore);
-        markdown.appendMarkdown(`\\n**Complexity Rating:** ${complexity}\\n`);
+        markdown.appendMarkdown(`**Complexity Rating:** ${complexity}\n\n`);
+        
+        // Add explanation for graph algorithms
+        if (result.timeComplexity.includes('V + E') || result.timeComplexity.includes('E + V')) {
+            markdown.appendMarkdown(`---\n\n`);
+            markdown.appendMarkdown(`**Where:**\n`);
+            markdown.appendMarkdown(`- **V** = Number of vertices (nodes)\n`);
+            markdown.appendMarkdown(`- **E** = Number of edges\n\n`);
+            markdown.appendMarkdown(`This is optimal for graph algorithms!\n`);
+        }
         
         return markdown;
     }
 
     private getComplexityRating(score: number): string {
         if (score >= 8) return '🔴 Exponential (Very High)';
+        if (score >= 6) return '🟡 Graph Algorithm (Medium-High)';
         if (score >= 4) return '🟠 Quadratic (High)';
         if (score >= 2) return '🟡 Linear (Medium)';
         return '🟢 Constant (Low)';
@@ -157,7 +187,13 @@ export class ComplexityDecorationProvider {
         this.decorationType.dispose();
         this.analysisResults.clear();
         
-        // Clear all timeouts
+        // Clear refresh interval
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+        
+        // Clear all timeouts (kept for backwards compatibility)
         this.timeoutHandles.forEach(timeout => clearTimeout(timeout));
         this.timeoutHandles.clear();
     }

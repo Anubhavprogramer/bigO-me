@@ -20,6 +20,35 @@ const testCodes = {
     recursive: `function fibonacci(n) {
         if (n <= 1) return n;
         return fibonacci(n - 1) + fibonacci(n - 2);
+    }`,
+    graphBFS: `function bfs(graph, start) {
+        const visited = new Set();
+        const queue = [start];
+        
+        while (queue.length > 0) {
+            const node = queue.shift();
+            
+            if (!visited.has(node)) {
+                visited.add(node);
+                console.log(node);
+                
+                for (const neighbor of graph[node]) {
+                    if (!visited.has(neighbor)) {
+                        queue.push(neighbor);
+                    }
+                }
+            }
+        }
+    }`,
+    graphDFS: `function dfs(graph, start, visited = new Set()) {
+        visited.add(start);
+        console.log(start);
+        
+        for (const neighbor of graph[start]) {
+            if (!visited.has(neighbor)) {
+                dfs(graph, neighbor, visited);
+            }
+        }
     }`
 };
 
