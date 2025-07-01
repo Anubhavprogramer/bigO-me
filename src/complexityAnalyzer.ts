@@ -79,6 +79,7 @@ export class ComplexityAnalyzer {
         let maxNested = 0;
         let hasRecursion = false;
         let hasGraphTraversal = false;
+        let loopVariables: string[] = []; // Track loop variables
 
         // Check for graph algorithm patterns first
         const graphPatterns = this.detectGraphAlgorithms(code);
@@ -91,15 +92,22 @@ export class ComplexityAnalyzer {
             const line = lines[i].trim();
             const lineNumber = i + 1;
 
-            // Check for loops
-            if (this.isLoop(line)) {
+            // Check for loops with variable analysis
+            const loopInfo = this.analyzeLoopWithVariables(line);
+            if (loopInfo.isLoop) {
                 nestedLevel++;
                 maxNested = Math.max(maxNested, nestedLevel);
+                
+                // Track loop variables for better complexity analysis
+                if (loopInfo.variables.length > 0) {
+                    loopVariables.push(...loopInfo.variables);
+                }
+
                 details.push({
                     type: 'loop',
-                    description: 'Loop detected',
+                    description: `Loop detected${loopInfo.variables.length > 0 ? ` (variables: ${loopInfo.variables.join(', ')})` : ''}`,
                     line: lineNumber,
-                    complexity: `O(n${nestedLevel > 1 ? '^' + nestedLevel : ''})`
+                    complexity: this.calculateLoopComplexity(nestedLevel, loopVariables)
                 });
             }
 
@@ -127,10 +135,14 @@ export class ComplexityAnalyzer {
             // Reset nesting level at closing braces/blocks
             if (line.includes('}') || this.isBlockEnd(line)) {
                 nestedLevel = Math.max(0, nestedLevel - 1);
+                // Remove variables when exiting loop scope
+                if (nestedLevel < loopVariables.length) {
+                    loopVariables.pop();
+                }
             }
         }
 
-        // Calculate final complexity
+        // Calculate final complexity with enhanced logic
         if (hasGraphTraversal) {
             timeComplexity = 'V + E';
             spaceComplexity = 'V';
@@ -138,15 +150,10 @@ export class ComplexityAnalyzer {
         } else if (hasRecursion) {
             timeComplexity = '2^n';
             totalScore = 8;
-        } else if (maxNested >= 3) {
-            timeComplexity = `n^${maxNested}`;
-            totalScore = maxNested * 2;
-        } else if (maxNested === 2) {
-            timeComplexity = 'n^2';
-            totalScore = 4;
-        } else if (maxNested === 1) {
-            timeComplexity = 'n';
-            totalScore = 2;
+        } else {
+            const complexityResult = this.calculateFinalComplexity(maxNested, loopVariables);
+            timeComplexity = complexityResult.complexity;
+            totalScore = complexityResult.score;
         }
 
         // Space complexity analysis
@@ -398,6 +405,112 @@ export class ComplexityAnalyzer {
             /set\s*\(/
         ];
         return patterns.some(pattern => pattern.test(code));
+    }
+
+    // Enhanced loop analysis methods
+    private analyzeLoopWithVariables(line: string): { isLoop: boolean; variables: string[] } {
+        const loopPatterns = [
+            { pattern: /\bfor\s*\(\s*let\s+(\w+)\s*=/, variables: 1 },      // for (let i = ...)
+            { pattern: /\bfor\s*\(\s*(\w+)\s*=/, variables: 1 },            // for (i = ...)
+            { pattern: /\bfor\s*\(\s*let\s+(\w+)\s+of\s+(\w+)/, variables: 2 }, // for (let x of arr)
+            { pattern: /\bfor\s*\(\s*let\s+(\w+)\s+in\s+(\w+)/, variables: 2 }, // for (let x in obj)
+            { pattern: /\bwhile\s*\(\s*(\w+)/, variables: 1 },              // while (condition)
+            { pattern: /\.forEach\s*\(/, variables: 0 },                    // .forEach
+            { pattern: /\.map\s*\(/, variables: 0 },                        // .map
+            { pattern: /\.filter\s*\(/, variables: 0 },                     // .filter
+            { pattern: /\.reduce\s*\(/, variables: 0 }                      // .reduce
+        ];
+
+        for (const { pattern, variables } of loopPatterns) {
+            const match = pattern.exec(line);
+            if (match) {
+                const extractedVars: string[] = [];
+                for (let i = 1; i <= variables && match[i]; i++) {
+                    extractedVars.push(match[i]);
+                }
+                return { isLoop: true, variables: extractedVars };
+            }
+        }
+
+        return { isLoop: false, variables: [] };
+    }
+
+    private calculateLoopComplexity(nestedLevel: number, loopVariables: string[]): string {
+        if (nestedLevel === 1) {
+            return 'O(n)';
+        }
+        
+        // Check if we have different variables (indicating different loop bounds)
+        const uniqueVariables = [...new Set(loopVariables)];
+        
+        if (nestedLevel === 2) {
+            if (uniqueVariables.length >= 2) {
+                // Different variables suggest O(n × m) complexity
+                const vars = uniqueVariables.slice(0, 2);
+                return `O(${vars.join(' × ')})`;
+            } else {
+                // Same variable suggests O(n²) complexity
+                return 'O(n²)';
+            }
+        }
+        
+        if (nestedLevel === 3) {
+            if (uniqueVariables.length >= 3) {
+                const vars = uniqueVariables.slice(0, 3);
+                return `O(${vars.join(' × ')})`;
+            } else if (uniqueVariables.length === 2) {
+                return `O(n² × m)`;
+            } else {
+                return 'O(n³)';
+            }
+        }
+        
+        // For higher nesting levels, fall back to polynomial notation
+        return `O(n^${nestedLevel})`;
+    }
+
+    private calculateFinalComplexity(maxNested: number, loopVariables: string[]): { complexity: string; score: number } {
+        if (maxNested === 0) {
+            return { complexity: '1', score: 1 };
+        }
+        
+        if (maxNested === 1) {
+            return { complexity: 'n', score: 2 };
+        }
+        
+        const uniqueVariables = [...new Set(loopVariables)];
+        
+        if (maxNested === 2) {
+            if (uniqueVariables.length >= 2) {
+                // Different variables: O(n × m)
+                const vars = uniqueVariables.slice(0, 2);
+                return { 
+                    complexity: `${vars.join(' × ')}`, 
+                    score: 4 
+                };
+            } else {
+                // Same variable: O(n²)
+                return { complexity: 'n²', score: 4 };
+            }
+        }
+        
+        if (maxNested === 3) {
+            if (uniqueVariables.length >= 3) {
+                const vars = uniqueVariables.slice(0, 3);
+                return { 
+                    complexity: `${vars.join(' × ')}`, 
+                    score: 6 
+                };
+            } else {
+                return { complexity: 'n³', score: 6 };
+            }
+        }
+        
+        // Higher nesting levels
+        return { 
+            complexity: `n^${maxNested}`, 
+            score: maxNested * 2 
+        };
     }
 }
 
@@ -929,6 +1042,8 @@ class JSComplexityAnalyzer {
     private maxNested = 0;
     private hasRecursion = false;
     private codeLines: string[] = [];
+    private loopVariables: string[] = []; // Track current loop variables (stack)
+    private allLoopVariables: string[] = []; // Track all loop variables seen
 
     analyze(ast: Node, code: string): ComplexityResult {
         this.codeLines = code.split('\n');
@@ -936,6 +1051,8 @@ class JSComplexityAnalyzer {
         this.nestedLevel = 0;
         this.maxNested = 0;
         this.hasRecursion = false;
+        this.loopVariables = [];
+        this.allLoopVariables = []; // Reset all variables tracker
 
         // Check for graph algorithms first
         const analyzer = new ComplexityAnalyzer();
@@ -957,15 +1074,13 @@ class JSComplexityAnalyzer {
             timeComplexity = '2^n';
             totalScore = 8;
             spaceComplexity = 'n';
-        } else if (this.maxNested >= 3) {
-            timeComplexity = `n^${this.maxNested}`;
-            totalScore = this.maxNested * 2;
-        } else if (this.maxNested === 2) {
-            timeComplexity = 'n^2';
-            totalScore = 4;
-        } else if (this.maxNested === 1) {
-            timeComplexity = 'n';
-            totalScore = 2;
+        } else {
+            // Use enhanced complexity calculation with variable awareness
+            console.log('[JSComplexityAnalyzer DEBUG] Calling calculateFinalComplexity with:', { maxNested: this.maxNested, allLoopVariables: this.allLoopVariables });
+            const complexityResult = this.calculateFinalComplexity(this.maxNested, this.allLoopVariables);
+            console.log('[JSComplexityAnalyzer DEBUG] Got result:', complexityResult);
+            timeComplexity = complexityResult.complexity;
+            totalScore = complexityResult.score;
         }
 
         return {
@@ -979,19 +1094,31 @@ class JSComplexityAnalyzer {
     private visit(node: any): void {
         if (!node) return;
 
-        switch (node.type) {
-            case 'ForStatement':
-            case 'WhileStatement':
-            case 'DoWhileStatement':
-            case 'ForInStatement':
-            case 'ForOfStatement':
-                this.handleLoop(node);
-                break;
-            case 'CallExpression':
-                this.handleCallExpression(node);
-                break;
-            default:
-                break;
+        const isLoop = ['ForStatement', 'WhileStatement', 'DoWhileStatement', 'ForInStatement', 'ForOfStatement'].includes(node.type);
+        let variableAdded = false;
+
+        if (isLoop) {
+            this.nestedLevel++;
+            this.maxNested = Math.max(this.maxNested, this.nestedLevel);
+            
+            const line = node.loc?.start?.line || 1;
+            
+            // Extract variable name from AST node
+            const variableName = this.extractVariableFromNode(node);
+            if (variableName) {
+                this.loopVariables.push(variableName);
+                this.allLoopVariables.push(variableName); // Track all variables
+                variableAdded = true;
+            }
+
+            this.details.push({
+                type: 'loop',
+                description: `${node.type} detected${variableName ? ` (variable: ${variableName})` : ''}`,
+                line,
+                complexity: this.calculateLoopComplexity(this.nestedLevel, this.loopVariables)
+            });
+        } else if (node.type === 'CallExpression') {
+            this.handleCallExpression(node);
         }
 
         // Visit child nodes
@@ -1008,23 +1135,127 @@ class JSComplexityAnalyzer {
             }
         }
 
-        // Decrease nesting level when exiting loop
-        if (['ForStatement', 'WhileStatement', 'DoWhileStatement', 'ForInStatement', 'ForOfStatement'].includes(node.type)) {
+        // Clean up when exiting loop
+        if (isLoop) {
             this.nestedLevel--;
+            if (variableAdded) {
+                this.loopVariables.pop();
+            }
         }
     }
 
-    private handleLoop(node: any): void {
-        this.nestedLevel++;
-        this.maxNested = Math.max(this.maxNested, this.nestedLevel);
+
+
+    private extractVariableFromNode(node: any): string | null {
+        switch (node.type) {
+            case 'ForStatement':
+                // for (let i = 0; i < n; i++)
+                if (node.init?.declarations?.[0]?.id?.name) {
+                    return node.init.declarations[0].id.name;
+                }
+                break;
+            case 'ForInStatement':
+            case 'ForOfStatement':
+                // for (let x in/of array)
+                if (node.left?.declarations?.[0]?.id?.name) {
+                    return node.left.declarations[0].id.name;
+                } else if (node.left?.id?.name) {
+                    return node.left.id.name;
+                }
+                break;
+            case 'WhileStatement':
+                // Extract variable from condition if possible
+                return this.extractVariableFromCondition(node.test);
+        }
+        return null;
+    }
+
+    private extractVariableFromCondition(condition: any): string | null {
+        if (condition?.left?.name) {
+            return condition.left.name;
+        }
+        if (condition?.object?.name) {
+            return condition.object.name;
+        }
+        return null;
+    }
+
+    private calculateLoopComplexity(nestedLevel: number, loopVariables: string[]): string {
+        if (nestedLevel === 1) {
+            return 'O(n)';
+        }
         
-        const line = node.loc?.start?.line || 1;
-        this.details.push({
-            type: 'loop',
-            description: `${node.type} detected`,
-            line,
-            complexity: `O(n${this.nestedLevel > 1 ? '^' + this.nestedLevel : ''})`
-        });
+        // Check if we have different variables (indicating different loop bounds)
+        const uniqueVariables = [...new Set(loopVariables)];
+        
+        if (nestedLevel === 2) {
+            if (uniqueVariables.length >= 2) {
+                // Different variables suggest O(n × m) complexity
+                const vars = uniqueVariables.slice(0, 2);
+                return `O(${vars.join(' × ')})`;
+            } else {
+                // Same variable suggests O(n²) complexity
+                return 'O(n²)';
+            }
+        }
+        
+        if (nestedLevel === 3) {
+            if (uniqueVariables.length >= 3) {
+                const vars = uniqueVariables.slice(0, 3);
+                return `O(${vars.join(' × ')})`;
+            } else if (uniqueVariables.length === 2) {
+                return `O(n² × m)`;
+            } else {
+                return 'O(n³)';
+            }
+        }
+        
+        // For higher nesting levels, fall back to polynomial notation
+        return `O(n^${nestedLevel})`;
+    }
+
+    private calculateFinalComplexity(maxNested: number, loopVariables: string[]): { complexity: string; score: number } {
+        if (maxNested === 0) {
+            return { complexity: '1', score: 1 };
+        }
+        
+        if (maxNested === 1) {
+            return { complexity: 'n', score: 2 };
+        }
+        
+        const uniqueVariables = [...new Set(loopVariables)];
+        
+        if (maxNested === 2) {
+            if (uniqueVariables.length >= 2) {
+                // Different variables: O(n × m)
+                const vars = uniqueVariables.slice(0, 2);
+                return { 
+                    complexity: `${vars.join(' × ')}`, 
+                    score: 4 
+                };
+            } else {
+                // Same variable: O(n²)
+                return { complexity: 'n²', score: 4 };
+            }
+        }
+        
+        if (maxNested === 3) {
+            if (uniqueVariables.length >= 3) {
+                const vars = uniqueVariables.slice(0, 3);
+                return { 
+                    complexity: `${vars.join(' × ')}`, 
+                    score: 6 
+                };
+            } else {
+                return { complexity: 'n³', score: 6 };
+            }
+        }
+        
+        // Higher nesting levels
+        return { 
+            complexity: `n^${maxNested}`, 
+            score: maxNested * 2 
+        };
     }
 
     private handleCallExpression(node: any): void {
