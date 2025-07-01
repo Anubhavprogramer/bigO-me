@@ -27,8 +27,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register automatic analysis on file save
     const onDidSaveTextDocument = vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
+        console.log('[EXTENSION DEBUG] File saved:', document.fileName);
         const config = vscode.workspace.getConfiguration('complexityAnalyzer');
-        if (config.get('enableAutoAnalysis')) {
+        const autoAnalysisEnabled = config.get('enableAutoAnalysis');
+        console.log('[EXTENSION DEBUG] Auto analysis enabled:', autoAnalysisEnabled);
+        if (autoAnalysisEnabled) {
+            console.log('[EXTENSION DEBUG] Running analysis on saved file');
             analyzeDocument(document, analyzer, decorationProvider);
         }
     });
@@ -92,13 +96,19 @@ async function analyzeDocument(
     analyzer: ComplexityAnalyzer, 
     decorationProvider: ComplexityDecorationProvider
 ) {
+    console.log('[EXTENSION DEBUG] analyzeDocument called for:', document.fileName, 'language:', document.languageId);
+    
     if (!isSupportedLanguage(document.languageId)) {
+        console.log('[EXTENSION DEBUG] Language not supported:', document.languageId);
         return;
     }
 
     try {
+        console.log('[EXTENSION DEBUG] Starting analysis...');
         const code = document.getText();
         const result = analyzer.analyzeCode(code, document.languageId);
+        console.log('[EXTENSION DEBUG] Analysis result:', result);
+        
         const range = new vscode.Range(0, 0, document.lineCount - 1, 0);
         
         decorationProvider.addAnalysisResult(document.uri, range, result);

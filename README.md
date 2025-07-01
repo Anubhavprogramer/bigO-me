@@ -1,38 +1,105 @@
 # Code Complexity Analyzer
 
-A powerful VS Code extension that analyzes the time and space complexity of your code to help you write more efficient algorithms.
+A powerful VS Code extension that analyzes the time and space complexity of your code across multiple programming languages to help you write more efficient algorithms.
 
 ## Features
 
-🔍 **Smart Code Analysis**: Automatically detects and analyzes the complexity of:
-- Loops (for, while, forEach, map, filter, etc.)
-- Recursive functions
-- Data structure operations
-- Nested algorithms
+🔍 **Multi-Language Smart Analysis**: Automatically detects and analyzes complexity for:
+- **JavaScript/TypeScript**: AST-based analysis with Acorn parser
+- **Python**: Pattern-based analysis with Python-specific syntax recognition  
+- **Java**: Object-oriented complexity analysis with collection operations
+- **C/C++**: Low-level complexity analysis with memory operations
+- **Graph Algorithms**: O(V + E) detection for BFS, DFS, and DAG algorithms across all languages
 
 📊 **Visual Indicators**: 
 - Inline complexity annotations showing O(n) notation
 - Color-coded complexity ratings (Green: O(1), Yellow: O(n), Orange: O(n²), Red: O(2^n))
-- Hover tooltips with detailed explanations
+- Hover tooltips with detailed explanations and algorithm identification
 
-📈 **Detailed Reports**: 
-- Interactive webview with comprehensive analysis
-- Function-by-function breakdown
-- Export functionality for documentation
+📈 **Comprehensive Detection**: 
+- Loops (for, while, forEach, map, filter, list comprehensions)
+- Recursive functions with exponential complexity detection
+- Graph traversal algorithms (BFS, DFS, topological sort)
+- Data structure operations across different languages
+- Nested algorithms with accurate nesting level tracking
+
+🎯 **Language-Specific Intelligence**:
+- **Python**: List comprehensions, generator expressions, collections.deque
+- **Java**: Stream operations, enhanced for loops, collection frameworks
+- **C/C++**: Pointer operations, memory allocation, struct handling
+- **JavaScript/TypeScript**: Arrow functions, array methods, async patterns
 
 ⚙️ **Smart Configuration**:
 - Automatic analysis on file save (optional)
 - Customizable inline annotations
-- Support for multiple programming languages
+- Language-specific pattern recognition
+- Graph algorithm heuristic detection
 
-## Supported Languages
+## Supported Languages & Complexity Patterns
 
-- JavaScript/TypeScript
-- Python
-- Java
-- C/C++
-- C#
-- Generic language support for basic patterns
+### JavaScript/TypeScript
+- ✅ AST-based parsing for accurate analysis
+- ✅ Array methods (map, filter, reduce, forEach)
+- ✅ Async/await patterns and Promise chains
+- ✅ Graph algorithms with Set/Map collections
+
+### Python  
+- ✅ List comprehensions and generator expressions
+- ✅ Collections module (deque, defaultdict)
+- ✅ Recursive patterns and dynamic programming
+- ✅ Graph algorithms with built-in data structures
+
+### Java
+- ✅ Collection framework operations (ArrayList, HashMap, etc.)
+- ✅ Stream API and lambda expressions
+- ✅ Enhanced for loops and traditional iterations
+- ✅ Graph algorithms with Java collections
+
+### C/C++
+- ✅ Pointer arithmetic and memory allocation
+- ✅ Array operations and struct handling
+- ✅ Function recursion and stack operations
+- ✅ Graph algorithms with manual memory management
+
+## Algorithm Detection Examples
+
+### Graph Algorithms (O(V + E))
+The extension intelligently detects graph algorithms across all supported languages:
+
+**Python BFS:**
+```python
+def bfs(graph, start):
+    visited = set()
+    queue = deque([start])  # ← Detected as O(V + E)
+    while queue:
+        node = queue.popleft()
+        # ... traversal logic
+```
+
+**Java BFS:**
+```java
+public void bfs(Map<Integer, List<Integer>> graph, int start) {
+    Queue<Integer> queue = new LinkedList<>();  // ← Detected as O(V + E)
+    Set<Integer> visited = new HashSet<>();
+    // ... traversal logic
+}
+```
+
+**C BFS:**
+```c
+void bfs(int graph[][100], int vertices, int start) {
+    int visited[100] = {0};
+    struct Queue q = {0};  // ← Detected as O(V + E)
+    // ... traversal logic
+}
+```
+
+### Recursive Patterns (O(2^n))
+```python
+def fibonacci(n):  # ← Detected as O(2^n)
+    if n <= 1: return n
+    return fibonacci(n-1) + fibonacci(n-2)
+```
 
 ## Usage
 
