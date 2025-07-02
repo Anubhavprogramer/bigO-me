@@ -1,8 +1,18 @@
 {
   "name": "code-complexity-analyzer",
-  "displayName": "Code Complexity Analyzer",
-  "description": "Analyzes time and space complexity of code",
-  "version": "0.0.1",
+  "displayName": "BigO-me - Code Complexity Analyzer",
+  "description": "Analyzes time and space complexity of code across multiple languages with intelligent algorithm detection",
+  "version": "0.0.3",
+  "publisher": "BigO-me",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BigO-me/code-complexity-analyzer.git"
+  },
+  "homepage": "https://github.com/BigO-me/code-complexity-analyzer#readme",
+  "bugs": {
+    "url": "https://github.com/BigO-me/code-complexity-analyzer/issues"
+  },
   "engines": {
     "vscode": "^1.101.0"
   },
@@ -374,7 +384,20 @@
     "yargs-unparser": "^2.0.0",
     "yocto-queue": "^0.1.0"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "complexity",
+    "big-o",
+    "algorithm",
+    "performance",
+    "analysis",
+    "javascript",
+    "typescript",
+    "python",
+    "java",
+    "c",
+    "cpp",
+    "optimization"
+  ],
+  "author": "BigO-me",
   "license": "ISC"
 }
