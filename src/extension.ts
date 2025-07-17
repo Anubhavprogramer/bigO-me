@@ -5,6 +5,9 @@ import { ComplexityAnalyzer } from './complexityAnalyzer';
 import { ComplexityDecorationProvider } from './decorationProvider';
 import { ComplexityWebviewProvider } from './webviewProvider';
 
+// Supported languages
+const SUPPORTED_LANGUAGES = ['javascript', 'typescript', 'python', 'java', 'c', 'cpp'];
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -28,6 +31,13 @@ export function activate(context: vscode.ExtensionContext) {
     // Register automatic analysis on file save
     const onDidSaveTextDocument = vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
         console.log('[EXTENSION DEBUG] File saved:', document.fileName);
+        
+        // Check if the document is in a supported language
+        if (!SUPPORTED_LANGUAGES.includes(document.languageId)) {
+            console.log('[EXTENSION DEBUG] Unsupported language:', document.languageId);
+            return;
+        }
+
         const config = vscode.workspace.getConfiguration('complexityAnalyzer');
         const autoAnalysisEnabled = config.get('enableAutoAnalysis');
         console.log('[EXTENSION DEBUG] Auto analysis enabled:', autoAnalysisEnabled);
@@ -39,8 +49,21 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register active editor change to update decorations
     const onDidChangeActiveTextEditor = vscode.window.onDidChangeActiveTextEditor((editor) => {
-        if (editor) {
+        if (editor && SUPPORTED_LANGUAGES.includes(editor.document.languageId)) {
             decorationProvider.updateDecorations(editor);
+        }
+    });
+
+    // Register when a text document is opened
+    const onDidOpenTextDocument = vscode.workspace.onDidOpenTextDocument((document: vscode.TextDocument) => {
+        if (SUPPORTED_LANGUAGES.includes(document.languageId)) {
+            console.log('[EXTENSION DEBUG] Supported document opened:', document.fileName);
+            // Optionally analyze on open
+            const config = vscode.workspace.getConfiguration('complexityAnalyzer');
+            const autoAnalysisEnabled = config.get('enableAutoAnalysis');
+            if (autoAnalysisEnabled) {
+                analyzeDocument(document, analyzer, decorationProvider);
+            }
         }
     });
 
@@ -48,7 +71,8 @@ export function activate(context: vscode.ExtensionContext) {
         analyzeComplexityCommand,
         showReportCommand,
         onDidSaveTextDocument,
-        onDidChangeActiveTextEditor
+        onDidChangeActiveTextEditor,
+        onDidOpenTextDocument
     );
 }
 
@@ -60,6 +84,13 @@ async function analyzeSelectedCode(analyzer: ComplexityAnalyzer, decorationProvi
     }
 
     const document = editor.document;
+    
+    // Check if the document is in a supported language
+    if (!SUPPORTED_LANGUAGES.includes(document.languageId)) {
+        vscode.window.showWarningMessage(`Language '${document.languageId}' is not supported. Supported languages: ${SUPPORTED_LANGUAGES.join(', ')}`);
+        return;
+    }
+
     const selection = editor.selection;
     
     let code: string;
