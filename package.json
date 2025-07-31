@@ -2,7 +2,7 @@
   "name": "code-complexity-analyzer",
   "displayName": "BigO-me - Code Complexity Analyzer",
   "description": "Analyzes time and space complexity of code across multiple languages with intelligent algorithm detection",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "BigO-me",
   "icon": "images/icon.png",
   "repository": {
@@ -14,7 +14,7 @@
     "url": "https://github.com/BigO-me/code-complexity-analyzer/issues"
   },
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.101.0"
   },
   "categories": [
     "Other"

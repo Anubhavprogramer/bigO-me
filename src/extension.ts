@@ -11,7 +11,7 @@ const SUPPORTED_LANGUAGES = ['javascript', 'typescript', 'python', 'java', 'c', 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Code Complexity Analyzer extension is now active!');
+    console.log('BigO-me Code Complexity Analyzer extension is now active!');
 
     const analyzer = new ComplexityAnalyzer();
     const decorationProvider = new ComplexityDecorationProvider();
@@ -67,6 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Add all subscriptions to context
     context.subscriptions.push(
         analyzeComplexityCommand,
         showReportCommand,
